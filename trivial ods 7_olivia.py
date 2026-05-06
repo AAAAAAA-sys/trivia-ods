@@ -1,262 +1,95 @@
-import customtkinter as ctk
-import random
 
-ctk.set_appearance_mode("dark")
+import streamlit as st
+from PIL import Image
+import os
 
-# =========================
-# ESTILO VISUAL
-# =========================
-BG = "#070B14"
-CARD = "#111827"
-ACCENT = "#00F5FF"
-GREEN = "#00FF9C"
-RED = "#FF3B3B"
-TEXT = "#E5E7EB"
+# CONFIGURACIÓN DE LA PÁGINA
+st.set_page_config(page_title="Reto ODS Interactivo", page_icon="🌍", layout="centered")
 
+# ESTILOS PERSONALIZADOS (CSS)
+st.markdown("""
+    <style>
+    .main { background-color: #0D1117; }
+    .stButton>button {
+        width: 100%;
+        border-radius: 20px;
+        height: 3em;
+        background-color: #161B22;
+        color: white;
+        border: 1px solid #58A6FF;
+    }
+    .stButton>button:hover {
+        background-color: #58A6FF;
+        color: white;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-class ODSGame(ctk.CTk):
+# INICIALIZACIÓN DE ESTADO (Para guardar puntos y pregunta actual)
+if 'score' not in st.session_state:
+    st.session_state.score = 0
+if 'current_idx' not in st.session_state:
+    st.session_state.current_idx = 0
+if 'game_over' not in st.session_state:
+    st.session_state.game_over = False
 
-    def __init__(self):
-        super().__init__()
+# DATOS DE PREGUNTAS
+questions = [
+    {"q": "¿Qué ODS busca el fin de la pobreza?", "a": "ODS 1", "img": "img/ods1.png"},
+    {"q": "¿Cuál promueve la igualdad de género?", "a": "ODS 5", "img": "img/ods5.png"},
+    {"q": "¿Qué ODS se enfoca en la acción climática?", "a": "ODS 13", "img": "img/ods13.png"}
+]
 
-        self.geometry("1000x750")
-        self.title("ODS Neon Challenge")
-        self.configure(fg_color=BG)
+def check_answer(choice, correct):
+    if choice == correct:
+        st.session_state.score += 1
+        st.toast("¡Correcto! 🌟")
+    else:
+        st.toast("Incorrecto... ❌", icon="⚠️")
+   
+    if st.session_state.current_idx < len(questions) - 1:
+        st.session_state.current_idx += 1
+    else:
+        st.session_state.game_over = True
 
-        self.container = ctk.CTkFrame(self, fg_color="transparent")
-        self.container.pack(expand=True, fill="both", padx=30, pady=30)
+# LÓGICA DE LA INTERFAZ
+st.title("🌍 Reto ODS Interactivo")
 
-        self.load_questions()
-        self.show_start()
+if not st.session_state.game_over:
+    item = questions[st.session_state.current_idx]
+   
+    # Mostrar progreso
+    progress = (st.session_state.current_idx + 1) / len(questions)
+    st.progress(progress)
+   
+    st.subheader(f"Pregunta {st.session_state.current_idx + 1}")
+   
+    # Mostrar Imagen
+    if os.path.exists(item["img"]):
+        image = Image.open(item["img"])
+        st.image(image, width=300)
+    else:
+        st.info("Intentando cargar imagen del ODS...")
 
-    # =========================
-    # DATOS
-    # =========================
-    def load_questions(self):
-        self.questions = [
-            {"q": "¿Qué promueve el ODS 4?",
-             "opts": ["Educación inclusiva", "Solo universidad", "Tecnología cara", "Exámenes difíciles"],
-             "a": "Educación inclusiva"},
+    st.write(f"### {item['q']}")
 
-            {"q": "ODS 13 se centra en:",
-             "opts": ["Cambio climático", "Educación", "Salud", "Industria"],
-             "a": "Cambio climático"},
+    # Botones de opciones
+    options = ["ODS 1", "ODS 5", "ODS 13", "ODS 7"]
+    cols = st.columns(2)
+    for i, opt in enumerate(options):
+        with cols[i % 2]:
+            if st.button(opt, key=f"btn_{i}"):
+                check_answer(opt, item["a"])
+                st.rerun()
 
-            {"q": "ODS 6 trata sobre:",
-             "opts": ["Agua limpia", "Dinero", "Turismo", "Tecnología"],
-             "a": "Agua limpia"},
+else:
+    st.balloons()
+    st.success(f"¡Felicidades! Has terminado el reto.")
+    st.metric("Puntuación Final", f"{st.session_state.score} / {len(questions)}")
+   
+    if st.button("Reiniciar Juego"):
+        st.session_state.score = 0
+        st.session_state.current_idx = 0
+        st.session_state.game_over = False
+        st.rerun()
 
-            {"q": "ODS 5 busca:",
-             "opts": ["Igualdad de género", "Más empresas", "Menos leyes", "Menos educación"],
-             "a": "Igualdad de género"},
-
-            {"q": "ODS 1 combate:",
-             "opts": ["La pobreza", "La contaminación", "El clima", "La guerra"],
-             "a": "La pobreza"},
-        ]
-
-    # =========================
-    # UI UTIL
-    # =========================
-    def clear(self):
-        for w in self.container.winfo_children():
-            w.destroy()
-
-    # =========================
-    # START SCREEN
-    # =========================
-    def show_start(self):
-        self.clear()
-
-        ctk.CTkLabel(
-            self.container,
-            text="ODS NEON CHALLENGE",
-            font=("Orbitron", 44, "bold"),
-            text_color=ACCENT
-        ).pack(pady=50)
-
-        ctk.CTkLabel(
-            self.container,
-            text="Responde rápido. Sube tu racha. Domina los ODS.",
-            font=("Segoe UI", 18),
-            text_color=TEXT
-        ).pack(pady=10)
-
-        self.neon_button("JUGAR", self.start_game).pack(pady=40)
-
-    # =========================
-    # START GAME
-    # =========================
-    def start_game(self):
-        self.score = 0
-        self.streak = 0
-        self.index = 0
-
-        self.game_questions = random.sample(self.questions, len(self.questions))
-
-        self.show_question()
-
-    # =========================
-    # PREGUNTA
-    # =========================
-    def show_question(self):
-        self.clear()
-
-        if self.index >= len(self.game_questions):
-            self.show_end()
-            return
-
-        self.time_left = 15
-        self.running = True
-
-        q = self.game_questions[self.index]
-
-        # HEADER
-        header = ctk.CTkFrame(self.container, fg_color="transparent")
-        header.pack(fill="x")
-
-        self.lbl_info = ctk.CTkLabel(
-            header,
-            text=f"Puntos: {self.score} | Racha: {self.streak} | {self.index+1}/{len(self.game_questions)}",
-            text_color=TEXT,
-            font=("Consolas", 16)
-        )
-        self.lbl_info.pack()
-
-        self.timer_bar = ctk.CTkProgressBar(self.container, progress_color=ACCENT)
-        self.timer_bar.set(1)
-        self.timer_bar.pack(fill="x", pady=10)
-
-        # CARD
-        self.card = ctk.CTkFrame(self.container, fg_color=CARD, corner_radius=25)
-        self.card.pack(expand=True, fill="both", pady=20)
-
-        ctk.CTkLabel(
-            self.card,
-            text=q["q"],
-            font=("Segoe UI", 26, "bold"),
-            wraplength=700,
-            text_color=TEXT
-        ).pack(pady=40)
-
-        # BOTONES
-        self.buttons = []
-
-        opts = q["opts"].copy()
-        random.shuffle(opts)
-
-        for opt in opts:
-            btn = self.neon_button(opt, lambda o=opt: self.answer(o))
-            btn.pack(pady=10, padx=40, fill="x")
-            self.buttons.append(btn)
-
-        self.update_timer()
-
-    # =========================
-    # TIMER
-    # =========================
-    def update_timer(self):
-        if not self.running:
-            return
-
-        self.time_left -= 0.05
-        self.timer_bar.set(self.time_left / 15)
-
-        if self.time_left <= 0:
-            self.answer(None)
-            return
-
-        self.after(50, self.update_timer)
-
-    # =========================
-    # RESPUESTA
-    # =========================
-    def answer(self, choice):
-        if not self.running:
-            return
-
-        self.running = False
-
-        q = self.game_questions[self.index]
-        correct = q["a"]
-
-        for b in self.buttons:
-            b.configure(state="disabled")
-
-        if choice == correct:
-            self.streak += 1
-            self.score += 100 + (self.streak * 20)
-            self.flash(GREEN)
-        else:
-            self.streak = 0
-            self.flash(RED)
-
-        self.after(900, self.next_question)
-
-    # =========================
-    # SIGUIENTE
-    # =========================
-    def next_question(self):
-        self.index += 1
-        self.show_question()
-
-    # =========================
-    # EFECTO FLASH
-    # =========================
-    def flash(self, color):
-        self.card.configure(fg_color=color)
-        self.after(200, lambda: self.card.configure(fg_color=CARD))
-
-    # =========================
-    # FINAL
-    # =========================
-    def show_end(self):
-        self.clear()
-
-        ctk.CTkLabel(
-            self.container,
-            text="GAME OVER",
-            font=("Orbitron", 42, "bold"),
-            text_color=ACCENT
-        ).pack(pady=50)
-
-        ctk.CTkLabel(
-            self.container,
-            text=f"Puntuación: {self.score}",
-            font=("Consolas", 28),
-            text_color=TEXT
-        ).pack(pady=10)
-
-        ctk.CTkLabel(
-            self.container,
-            text=f"Mejor racha: {self.streak}",
-            font=("Consolas", 20),
-            text_color=TEXT
-        ).pack(pady=10)
-
-        self.neon_button("REINICIAR", self.show_start).pack(pady=40)
-
-    # =========================
-    # BOTÓN NEÓN
-    # =========================
-    def neon_button(self, text, cmd):
-        btn = ctk.CTkButton(
-            self.container,
-            text=text,
-            command=cmd,
-            fg_color="#1F2937",
-            hover_color=ACCENT,
-            corner_radius=18,
-            height=50,
-            font=("Segoe UI", 16, "bold")
-        )
-
-        return btn
-
-
-# =========================
-# RUN
-# =========================
-if __name__ == "__main__":
-    app = ODSGame()
-    app.mainloop()
